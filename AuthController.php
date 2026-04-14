@@ -2,26 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Subak;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
-class AdminController extends Controller
+class AuthController extends Controller
 {
-    public function dashboard()
+    public function showLogin()
     {
-        $totalSubaks = Subak::count();
-        $totalKabupaten = Subak::distinct('kabupaten')->count('kabupaten');
-        $subakWithFoto = Subak::whereNotNull('foto')->count();
-        $subakWithoutFoto = Subak::whereNull('foto')->count();
-        
-        $latestSubaks = Subak::latest()->take(10)->get();
+        return view('admin.login');
+    }
 
-        return view('admin.dashboard', compact(
-            'totalSubaks',
-            'totalKabupaten',
-            'subakWithFoto',
-            'subakWithoutFoto',
-            'latestSubaks'
-        ));
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if (Auth::attempt($credentials)) {
+            $request->session()->regenerate();
+            
+            if (auth()->user()->isAdmin()) {
+                return redirect()->intended(route('admin.dashboard'));
+            }
+            
+            Auth::logout();
+            return back()->withErrors(['email' => 'Anda tidak memiliki akses admin.']);
+        }
+
+        return back()->withErrors([
+            'email' => 'Email atau password salah.',
+        ])->onlyInput('email');
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('admin.login');
     }
 }
